@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(EMPLOYEE)
+  active       Boolean  @default(true)
+  managerId    String?
+  manager      User?    @relation("UserManager", fields: [managerId], references: [id])
+  reports      User[]   @relation("UserManager")
+  requests     LeaveRequest[] @relation("Requester")
+  reviews      LeaveRequest[] @relation("Reviewer")
+  balances     LeaveBalance[]
+  auditLogs    AuditLog[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model LeaveRequest {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation("Requester", fields: [userId], references: [id], onDelete: Cascade)
+  leaveType String
+  startDate DateTime
+  endDate   DateTime
+  reason    String
+  status    LeaveStatus @default(PENDING)
+  reviewerId String?
+  reviewer  User?       @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewedAt DateTime?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model LeaveBalance {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveType String
+  year      Int
+  total     Int
+  used      Int    @default(0)
+
+  @@unique([userId, leaveType, year])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
